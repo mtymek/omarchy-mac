@@ -13,6 +13,14 @@ assert(!audio.isPlaybackStream({ isStream: false, isSink: true }), 'audio reject
 assert(audio.isAudioSource({ audio: {} }), 'audio detects nodes with audio as sources')
 assert(audio.isAudioSource({ type: 'Audio/Source' }), 'audio detects typed source nodes')
 
+// DSP chain outputs must stay unselectable: choosing the Asahi DSP mic races
+// the mic mapper and can wedge the capture codec (issue #431).
+assert(audio.isDspChainSource({ name: 'effect_output.j414-mic', audio: {} }), 'audio flags Asahi DSP mic chain outputs')
+assert(audio.isDspChainSource({ name: 'effect_output.j413-convolver' }), 'audio flags DSP-out chain nodes')
+assert(!audio.isDspChainSource({ name: 'omarchy_asahi_mic.monitor' }), 'audio keeps the mapper monitor selectable')
+assert(!audio.isDspChainSource({ name: 'alsa_input.platform-sound.HiFi__Headset__source' }), 'audio keeps physical inputs selectable')
+assert(!audio.isDspChainSource({ name: undefined, audio: {} }), 'audio tolerates unnamed nodes')
+
 assertEqual(audio.outputVolumeName(0, false), 'Silenced', 'audio labels silent output')
 assertEqual(audio.outputVolumeName(0.9, false), 'Party mode', 'audio labels loud output')
 assertEqual(audio.outputVolumeName(0.5, true), 'Muted', 'audio labels muted output')
@@ -47,3 +55,7 @@ assertEqual(audio.unmatchedMprisStreamLabel('audio-src', players, streams), 'Spo
 assertEqual(audio.streamLabel(streams[1], players, streams), 'Spotify', 'audio labels generic streams from MPRIS')
 assert(audio.streamRepresentsPlayer(streams[1], players[0], players, streams), 'audio links generic streams to active player')
 JS
+
+grep -q 'Model.isDspChainSource(n)' "$ROOT/shell/plugins/panels/audio/Panel.qml" \
+  || fail 'audio panel skips DSP chain sources in the input list'
+pass 'audio panel wires the DSP chain source skip'

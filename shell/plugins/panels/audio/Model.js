@@ -18,6 +18,15 @@ function isAudioSource(node) {
     || mediaClass.indexOf("Source") !== -1
 }
 
+// WirePlumber filter-chain outputs (the Asahi DSP microphone on j-series
+// Macs, speaker DSP taps) are processing plumbing, never user-selectable
+// inputs. Selecting the DSP mic as a default source races the Asahi mic
+// mapper and can tear the capture chain down to a reboot-only codec wedge
+// (issue #431).
+function isDspChainSource(node) {
+  return String((node && node.name) || "").indexOf("effect_output.") === 0
+}
+
 function listSnapshot(list) {
   return list && list.slice ? list.slice() : []
 }
@@ -237,6 +246,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     isPlaybackStream: isPlaybackStream,
     isAudioSource: isAudioSource,
+    isDspChainSource: isDspChainSource,
     listSnapshot: listSnapshot,
     outputVolumeName: outputVolumeName,
     parseSinkAvailability: parseSinkAvailability,
