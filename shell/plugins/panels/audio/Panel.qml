@@ -36,6 +36,7 @@ Panel {
       if (n && !n.isSink && !n.isStream && isAudioSource(n)) {
         var name = n.name || ""
         if (name === "quickshell") continue
+        if (Model.isDspChainSource(n)) continue
         list.push(n)
       }
     }
