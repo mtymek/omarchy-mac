@@ -15,12 +15,18 @@ printf 'prompt:%s\n' "$*" >>"$SUDO_TEST_LOG"
 exit 1
 STUB
 chmod +x "$SUDO_TEST_ROOT/bin/gum"
+# Hyprland runs only where a case says so, whatever the host is running.
+cat >"$SUDO_TEST_ROOT/bin/pgrep" <<'STUB'
+#!/bin/bash
+[[ ${SUDO_TEST_HYPRLAND:-} == "1" ]]
+STUB
+chmod +x "$SUDO_TEST_ROOT/bin/pgrep"
 mkdir -p "$SUDO_TEST_HOME/.local/state/omarchy"
 touch "$SUDO_TEST_HOME/.local/state/omarchy/reboot-required" "$SUDO_TEST_HOME/.local/state/omarchy/restart-sshd-required"
 
 for mode in --services-only --reboot-only; do
   reset_boundary
-  PATH="$SUDO_TEST_ROOT/bin:$PATH" "$SUDO_TEST_ROOT/bin/omarchy-update-restart" "$mode" >"$boundary_tmp/output" 2>&1
+  SUDO_TEST_HYPRLAND=1 PATH="$SUDO_TEST_ROOT/bin:$PATH" "$SUDO_TEST_ROOT/bin/omarchy-update-restart" "$mode" >"$boundary_tmp/output" 2>&1
   if [[ $mode == "--services-only" ]]; then
     grep -q '^step:omarchy-restart-sshd ' "$SUDO_TEST_LOG" || fail "service phase did not restart a marked service"
     grep -q '^step:omarchy-restart-shell ' "$SUDO_TEST_LOG" || fail "service phase did not restart the shell"
@@ -31,6 +37,11 @@ for mode in --services-only --reboot-only; do
   fi
   pass "restart $mode performs only its selected phase"
 done
+reset_boundary
+PATH="$SUDO_TEST_ROOT/bin:$PATH" "$SUDO_TEST_ROOT/bin/omarchy-update-restart" --services-only >"$boundary_tmp/output" 2>&1
+grep -q '^step:omarchy-restart-sshd ' "$SUDO_TEST_LOG" || fail "service phase without Hyprland skipped a marked service"
+if grep -q '^step:omarchy-restart-shell ' "$SUDO_TEST_LOG"; then fail "service phase restarted the shell without a running Hyprland"; fi
+pass "service phase leaves the shell alone without a running Hyprland"
 reset_boundary
 OMARCHY_UPDATE_UNATTENDED=1 PATH="$SUDO_TEST_ROOT/bin:$PATH" "$SUDO_TEST_ROOT/bin/omarchy-update-restart" --reboot-only >"$boundary_tmp/output" 2>&1
 if grep -Eq "^(prompt:|step:omarchy-restart-|step:omarchy-system)" "$SUDO_TEST_LOG"; then
